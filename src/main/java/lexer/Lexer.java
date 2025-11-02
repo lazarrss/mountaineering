@@ -108,9 +108,9 @@ public class Lexer {
             throw error("Error: Character in numeric literal");
         }
         if(text.contains("."))
-            addLiteralAltitude(text);
-        else
             addLiteralSlope(text);
+        else
+            addLiteralAltitude(text);
     }
 
     private void identifier() {
