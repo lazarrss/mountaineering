@@ -3,9 +3,9 @@ package lexer.token;
 public class Token {
     public final TokenType type;
     public final String lexeme;
-    public final Integer literal;
+    public final Object literal;
     public final int line, colStart, colEnd;
-    public Token(TokenType t, String lx, Integer lit, int line, int cs, int ce) {
+    public Token(TokenType t, String lx, Object lit, int line, int cs, int ce) {
         this.type=t; this.lexeme=lx; this.literal=lit; this.line=line; this.colStart=cs; this.colEnd=ce;
     }
     public String toString(){

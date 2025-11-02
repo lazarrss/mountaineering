@@ -13,20 +13,20 @@ public class Lexer {
     private final List<Token> tokens = new ArrayList<>();
 
     private static final Map<String, TokenType> KEYWORDS = Map.ofEntries(
-            Map.entry("altitude", TokenType.INT),
-            Map.entry("slope", TokenType.DOUBLE),
-            Map.entry("mark", TokenType.CHAR),
-            Map.entry("route", TokenType.STRING),
-            Map.entry("secure", TokenType.BOOL),
-            Map.entry("rope", TokenType.ARRAY),
-            Map.entry("basecamp", TokenType.VOID),
-            Map.entry("shout", TokenType.PRINT),
-            Map.entry("radio", TokenType.INPUT),
-            Map.entry("routeplan", TokenType.FUNCTION),
-            Map.entry("summit", TokenType.MAIN),
-            Map.entry("anchored", TokenType.TRUE),
-            Map.entry("loose", TokenType.FALSE),
-            Map.entry("whiteout", TokenType.NULL),
+            Map.entry("altitude", TokenType.ALTITUDE),
+            Map.entry("slope", TokenType.SLOPE),
+            Map.entry("mark", TokenType.MARK),
+            Map.entry("route", TokenType.ROUTE),
+            Map.entry("secure", TokenType.SECURE),
+            Map.entry("[]", TokenType.ARRAY),
+            Map.entry("basecamp", TokenType.BASECAMP),
+            Map.entry("shout", TokenType.SHOUT),
+            Map.entry("radio", TokenType.RADIO),
+            Map.entry("routeplan", TokenType.ROUTEPLAN),
+            Map.entry("summit", TokenType.SUMMIT),
+            Map.entry("anchored", TokenType.ANCHORED),
+            Map.entry("loose", TokenType.LOOSE),
+            Map.entry("whiteout", TokenType.WHITEOUT),
             Map.entry("<>", TokenType.ASSIGN),
             Map.entry("+", TokenType.ADD),
             Map.entry("-", TokenType.SUBTRACT),
@@ -34,12 +34,12 @@ public class Lexer {
             Map.entry("*", TokenType.MULTIPLY),
             Map.entry("%", TokenType.MODULO),
             Map.entry("==", TokenType.EQ),
-            Map.entry("ifridge", TokenType.IF),
-            Map.entry("elsecamp", TokenType.ELSE),
-            Map.entry("climb", TokenType.FOR),
-            Map.entry("belay", TokenType.WHILE),
-            Map.entry("on", TokenType.DO),
-            Map.entry("descend", TokenType.RETURN)
+            Map.entry("ifridge", TokenType.IFRIDGE),
+            Map.entry("elsecamp", TokenType.ELSECAMP),
+            Map.entry("climb", TokenType.CLIMB),
+            Map.entry("belay", TokenType.BELAY),
+            Map.entry("on", TokenType.ON),
+            Map.entry("descend", TokenType.DESCEND)
     );
 
     public Lexer(String source) {
@@ -64,6 +64,8 @@ public class Lexer {
             case ')' -> add(TokenType.RPAREN);
             case '[' -> add(TokenType.LBRACKET);
             case ']' -> add(TokenType.RBRACKET);
+            case '{' -> add(TokenType.LCURLY);
+            case '}' -> add(TokenType.RCURLY);
             case ',' -> add(TokenType.SEPARATOR_COMMA);
             case ':' -> add(TokenType.TYPE_COLON);
             case '+' -> add(TokenType.ADD);
@@ -96,12 +98,19 @@ public class Lexer {
 
     private void number() {
         while (Character.isDigit(sc.peek())) sc.advance();
+        if(sc.peek() == '.' && Character.isDigit(sc.peekNext())) {
+            do sc.advance();
+            while (Character.isDigit(sc.peek()));
+        }
         String text = source.substring(sc.getStartIdx(), sc.getCur());
         char nextChar = sc.peek();
         if (Character.isAlphabetic(nextChar)) {
-            throw error("Error: Character in int literal");
+            throw error("Error: Character in numeric literal");
         }
-        addLiteralInt(text);
+        if(text.contains("."))
+            addLiteralAltitude(text);
+        else
+            addLiteralSlope(text);
     }
 
     private void identifier() {
@@ -125,8 +134,13 @@ public class Lexer {
                 sc.getStartLine(), sc.getStartCol(), sc.getCol() - 1));
     }
 
-    private void addLiteralInt(String literal) {
-        tokens.add(new Token(TokenType.INT_LIT, literal, Integer.valueOf(literal),
+    private void addLiteralAltitude(String literal) {
+        tokens.add(new Token(TokenType.ALTITUDE, literal, Integer.valueOf(literal),
+                sc.getStartLine(), sc.getStartCol(), sc.getCol() - 1));
+    }
+
+    private void addLiteralSlope(String literal) {
+        tokens.add(new Token(TokenType.DOUBLE_LIT, literal, Double.valueOf(literal),
                 sc.getStartLine(), sc.getStartCol(), sc.getCol() - 1));
     }
 
