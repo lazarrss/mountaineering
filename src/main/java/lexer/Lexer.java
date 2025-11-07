@@ -90,6 +90,8 @@ public class Lexer {
             case ' ', '\r', '\t', '\n' -> {}
             default -> {
                 if (Character.isDigit(c)) number();
+                else if(isSingleQuotation(c)) character(c);
+                else if(isDoubleQuotation(c)) Str(c);
                 else if (isIdentStart(c)) identifier();
                 else throw error("Unexpected character");
             }
@@ -104,14 +106,36 @@ public class Lexer {
         }
         String text = source.substring(sc.getStartIdx(), sc.getCur());
         char nextChar = sc.peek();
-        if (Character.isAlphabetic(nextChar)) {
+        if (Character.isAlphabetic(nextChar))
             throw error("Error: Character in numeric literal");
-        }
         if(text.contains("."))
             addLiteralSlope(text);
         else
             addLiteralAltitude(text);
     }
+
+    private void character(char chr) {
+        if (sc.peekNext() == chr){
+            sc.advance(); sc.advance();
+            String text = source.substring(sc.getStartIdx(), sc.getCur());
+            addLiteralMark(text);
+        }
+    }
+
+    void Str(char str) {
+        while (sc.peek() != str && !sc.isAtEnd()) {
+            sc.advance();
+        }
+        if (sc.isAtEnd()) {
+            System.err.println("Unterminated string literal at line " + sc.getLine());
+            return;
+        }
+        sc.advance();
+
+        String text = source.substring(sc.getStartIdx(), sc.getCur());
+        addLiteralRoute(text);
+    }
+
 
     private void identifier() {
         while (isIdentPart(sc.peek())) sc.advance();
@@ -121,6 +145,8 @@ public class Lexer {
     }
 
     private boolean isIdentStart(char c) { return Character.isLetter(c) || c == '_'; }
+    private boolean isSingleQuotation(char c) { return c == '\''; }
+    private boolean isDoubleQuotation(char c) { return c == '\"'; }
     private boolean isIdentPart(char c)  { return isIdentStart(c) || Character.isDigit(c); }
 
     private void add(TokenType type) {
@@ -135,14 +161,34 @@ public class Lexer {
     }
 
     private void addLiteralAltitude(String literal) {
-        tokens.add(new Token(TokenType.ALTITUDE, literal, Integer.valueOf(literal),
+        tokens.add(new Token(TokenType.ALTITUDE_LIT, literal, Integer.valueOf(literal),
                 sc.getStartLine(), sc.getStartCol(), sc.getCol() - 1));
     }
 
     private void addLiteralSlope(String literal) {
-        tokens.add(new Token(TokenType.DOUBLE_LIT, literal, Double.valueOf(literal),
+        tokens.add(new Token(TokenType.SLOPE_LIT, literal, Double.valueOf(literal),
                 sc.getStartLine(), sc.getStartCol(), sc.getCol() - 1));
     }
+
+    private void addLiteralMark(String literal) {
+        tokens.add(new Token(TokenType.MARK_LIT, literal, literal.charAt(1),
+                sc.getStartLine(), sc.getStartCol(), sc.getCol() - 1));
+    }
+
+    private void addLiteralRoute(String literal) {
+        tokens.add(new Token(TokenType.ROUTE_LIT, literal, literal.substring(1, literal.length() - 1),
+                sc.getStartLine(), sc.getStartCol(), sc.getCol() - 1));
+    }
+
+//    private void addMark(String mark) {
+//        tokens.add(new Token(TokenType.MARK, mark, null,
+//                sc.getStartLine(), sc.getStartCol(), sc.getCol() - 1));
+//    }
+//
+//    private void addRoute(String route) {
+//        tokens.add(new Token(TokenType.ROUTE, route, null,
+//                sc.getStartLine(), sc.getStartCol(), sc.getCol() - 1));
+//    }
 
     private RuntimeException error(String msg) {
         String near = source.substring(sc.getStartIdx(), Math.min(sc.getCur(), source.length()));

@@ -1,24 +1,16 @@
 summit() {
-    altitude a <> 3;
-    altitude b, c;
-    b <> 2;
-    c <> 3;
-    slope d <> 2.3;
-    slope e, f;
-    e <> 2.1
-    f <> 5.0
+    altitude a <> -3;
+    slope b <> -4.3
+    mark ch <> 'C';
+    route str <> "String example";
+    secure boolean <> anchored;
 
-    c <> a - b;
-    f <> d - e
     climb (altitude i <> 0; i <> 5; i++) {
-        c <> c + a;
-        c <> c - b;
-
-        f <> f + d;
-        f <> f - e
+        b <> b + 2.1;
+        a <> a + 4;
     }
 
     radio(c);
-    radio(f)
+    radio(f);
     descend;
 }
