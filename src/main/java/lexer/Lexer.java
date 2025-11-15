@@ -23,23 +23,26 @@ public class Lexer {
             Map.entry("shout", TokenType.SHOUT),
             Map.entry("radio", TokenType.RADIO),
             Map.entry("routeplan", TokenType.ROUTEPLAN),
-            Map.entry("summit", TokenType.SUMMIT),
+//            Map.entry("summit", TokenType.SUMMIT),
             Map.entry("anchored", TokenType.ANCHORED),
             Map.entry("loose", TokenType.LOOSE),
             Map.entry("whiteout", TokenType.WHITEOUT),
             Map.entry("<>", TokenType.ASSIGN),
-            Map.entry("+", TokenType.ADD),
-            Map.entry("-", TokenType.SUBTRACT),
-            Map.entry("/", TokenType.DIVIDE),
-            Map.entry("*", TokenType.MULTIPLY),
-            Map.entry("%", TokenType.MODULO),
+//            Map.entry("+", TokenType.ADD),
+//            Map.entry("-", TokenType.SUBTRACT),
+//            Map.entry("/", TokenType.DIVIDE),
+//            Map.entry("*", TokenType.MULTIPLY),
+//            Map.entry("%", TokenType.MODULO),
             Map.entry("==", TokenType.EQ),
             Map.entry("ifridge", TokenType.IFRIDGE),
             Map.entry("elsecamp", TokenType.ELSECAMP),
             Map.entry("climb", TokenType.CLIMB),
             Map.entry("belay", TokenType.BELAY),
             Map.entry("on", TokenType.ON),
-            Map.entry("descend", TokenType.DESCEND)
+            Map.entry("descend", TokenType.DESCEND),
+            Map.entry("and", TokenType.AND),
+            Map.entry("or", TokenType.OR),
+            Map.entry("not", TokenType.NOT)
     );
 
     public Lexer(String source) {
@@ -68,11 +71,12 @@ public class Lexer {
             case '}' -> add(TokenType.RCURLY);
             case ',' -> add(TokenType.SEPARATOR_COMMA);
             case ':' -> add(TokenType.TYPE_COLON);
-            case '+' -> add(TokenType.ADD);
-            case '-' -> add(TokenType.SUBTRACT);
+            case '+' -> add(TokenType.PLUS);
+            case '-' -> add(TokenType.MINUS);
             case '*' -> add(TokenType.MULTIPLY);
-            case '/' -> add(TokenType.DIVIDE);
+            case '/' -> add(TokenType.DIV);
             case '%' -> add(TokenType.MODULO);
+            case '^' -> add(TokenType.POW);
             case '<' -> add(sc.match('=') ? TokenType.LE : sc.match('>') ? TokenType.ASSIGN : TokenType.LT);
             case '>' -> add(sc.match('=') ? TokenType.GE : TokenType.GT);
             case ';' -> add(TokenType.SEMICOLON);

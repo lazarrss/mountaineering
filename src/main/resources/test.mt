@@ -1,4 +1,4 @@
-summit() {
+routeplan basecamp summit() {
     altitude a <> -3;
     slope b <> -4.3
     mark ch <> 'C';
@@ -10,7 +10,6 @@ summit() {
         a <> a + 4;
     }
 
-    radio(c);
-    radio(f);
+    radio(b);
     descend;
 }
