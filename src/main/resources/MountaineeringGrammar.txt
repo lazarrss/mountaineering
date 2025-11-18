@@ -1,0 +1,134 @@
+// EBNF notacija, {} je ponavljanje kao * u reg. izrazima, [] je opciono kao ? u reg. izrazima, () menja prioritete
+// Iz lexera su ( ) LPAREN i RPAREN, i [] LBRACKET i RBRACKET
+
+// program
+program        = program_body EOF ;
+
+program_body   = { top_item } ;
+
+// top-level
+top_item       = var_decl | func_decl ;
+
+// routeplan basecamp summit(...) { ... }
+// routeplan altitude f(...) { ... }
+func_decl      = ROUTEPLAN func_return_type IDENT LPAREN [ params ] RPAREN LCURLY
+                   block
+                 RCURLY ;
+
+func_return_type = BASECAMP | type ;
+
+// var types
+type           = ALTITUDE        // int
+               | SLOPE           // double
+               | MARK            // char
+               | ROUTE           // string
+               | SECURE ;        // bool
+
+// var declaration
+//  altitude a;
+//  altitude a <> 3, b[10], c <> 5;
+//  route s[10][20];
+var_decl       = type var_declarator { SEPARATOR_COMMA var_declarator } SEMICOLON ;
+
+var_declarator = IDENT
+                  { LBRACKET expr RBRACKET }   // optional []
+                  [ ASSIGN expr ] ;
+
+// func param
+// altitude a, route s[], secure flags[][]
+params         = param { SEPARATOR_COMMA param } ;
+
+param          = param_type IDENT ;
+
+param_type     = type [ array_suffix ] ;
+
+array_suffix   = LBRACKET RBRACKET { LBRACKET RBRACKET } ;
+
+block          = { stmt } ;
+
+stmt           = var_decl
+               | return_stmt
+               | call_or_call_assign
+               | assign_stmt
+               | incdec_stmt
+               | conditions ;
+
+conditions     = if_tail | for_tail | while_tail | do_while_tail ;
+
+// ifridge (cond) { ... } elsecamp ifridge (cond) { ... } elsecamp { ... }
+if_tail        =
+  IFRIDGE LPAREN cond RPAREN LCURLY block RCURLY
+  { ELSECAMP IFRIDGE LPAREN cond RPAREN LCURLY block RCURLY }
+  [ ELSECAMP LCURLY block RCURLY ] ;
+
+// climb (altitude i <> 0; i < 10; i++) { ... }
+for_tail       =
+  CLIMB LPAREN
+          type IDENT ASSIGN expr SEMICOLON
+          [ cond ] SEMICOLON
+          incdec_expr
+        RPAREN LCURLY
+          block
+        RCURLY ;
+
+// belay (cond) { ... }
+while_tail     =
+  BELAY LPAREN cond RPAREN LCURLY
+    block
+  RCURLY ;
+
+// on { ... } belay (cond);
+do_while_tail   =
+   ON LCURLY
+     block
+   RCURLY BELAY LPAREN cond RPAREN SEMICOLON ;
+
+return_stmt    = DESCEND [ expr ] SEMICOLON ;
+
+// callable funcs
+// shout("Hello");
+// radio(b);
+call_func      = (IDENT | SHOUT | RADIO) LPAREN [ args ] RPAREN ;
+
+call_or_call_assign = [ lvalue ASSIGN ] call_func SEMICOLON ;
+
+// a <> 3 + 5;
+assign_stmt    = lvalue ASSIGN expr_no_call SEMICOLON ;
+
+// i++;  a--;
+incdec_stmt    = lvalue ( INC | DEC ) SEMICOLON ;
+
+lvalue         = IDENT { LBRACKET expr RBRACKET } ;
+
+args           = expr { SEPARATOR_COMMA expr } ;
+
+expr           = call_func | expression ;
+expr_no_call   = expression ;  
+
+lit            = ALTITUDE_LIT
+               | SLOPE_LIT
+               | MARK_LIT
+               | ROUTE_LIT
+               | ANCHORED
+	       | LOOSE
+	       | WHITEOUT
+
+
+atom           = lit
+               | lvalue
+               | LPAREN expr RPAREN ;
+
+cond           = expression ;
+
+expression     = or ;
+
+or             = and { OR and } ;
+and            = comparison { AND comparison } ;
+comparison     = add { ( EQ | NEQ | LT | LE | GT | GE ) add } ;
+add            = mul { ( PLUS | MINUS ) mul } ;
+mul            = unary { ( MULTIPLY | DIV | MODULO ) unary } ;
+unary          = [ PLUS | MINUS | NOT ] postfix ;
+postfix        = primary { INC | DEC } ;
+
+primary        = atom ;
+incdec_expr    = lvalue ( INC | DEC ) ;
