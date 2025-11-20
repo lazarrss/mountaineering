@@ -7,7 +7,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
-public class Lexer {
+public class Lexer  {
     private final ScannerCore sc;
     private final String source;
     private final List<Token> tokens = new ArrayList<>();
@@ -105,7 +105,8 @@ public class Lexer {
     private void number() {
         while (Character.isDigit(sc.peek())) sc.advance();
         if(sc.peek() == '.' && Character.isDigit(sc.peekNext())) {
-            do sc.advance();
+            do
+                sc.advance();
             while (Character.isDigit(sc.peek()));
         }
         String text = source.substring(sc.getStartIdx(), sc.getCur());
@@ -119,7 +120,7 @@ public class Lexer {
     }
 
     private void character(char chr) {
-        if (sc.peekNext() == chr){
+        if (sc.peekNext() == '\''){
             sc.advance(); sc.advance();
             String text = source.substring(sc.getStartIdx(), sc.getCur());
             addLiteralMark(text);
@@ -127,7 +128,7 @@ public class Lexer {
     }
 
     void Str(char str) {
-        while (sc.peek() != str && !sc.isAtEnd()) {
+        while (sc.peek() != '\"' && !sc.isAtEnd()) {
             sc.advance();
         }
         if (sc.isAtEnd()) {
