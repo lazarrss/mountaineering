@@ -2,7 +2,7 @@ package lexer.token;
 
 import java.util.List;
 
-public class TokenFormatter {
+public class TokenFormatter  {
     private static String escape(String s) {
         return s.replace("\n", "\\n").replace("\0", "\\0");
     }
@@ -15,7 +15,7 @@ public class TokenFormatter {
         return " ".repeat(left) + s + " ".repeat(right);
     }
 
-    public static String format(Token t) {
+    public static String format(Token t)  {
         String typeStr = center(String.valueOf(t.type), 10);
         String lexStr = center("'" + escape(t.lexeme) + "'", 18);
         String litStr = center(t.literal == null ? "N/A" : t.literal.toString(), 11);

@@ -1,6 +1,6 @@
 package lexer.token;
 
-public enum TokenType {
+public enum TokenType  {
     ALTITUDE, SLOPE, MARK, ROUTE, SECURE, ANCHORED, LOOSE, IFRIDGE, OR, ELSECAMP, CLIMB, DESCEND, AND, NOT, ARRAY, BASECAMP,
     SHOUT, RADIO, ROUTEPLAN, /*summit,*/ WHITEOUT, BELAY, ON,
     IDENT, ALTITUDE_LIT, SLOPE_LIT, MARK_LIT, ROUTE_LIT,
@@ -9,5 +9,5 @@ public enum TokenType {
     LT, LE, GT, GE, EQ, NEQ,
     PLUS2, MINUS2,
     ASSIGN,
-    NEWLINE, EOF
+    NEWLINE,  EOF
 }

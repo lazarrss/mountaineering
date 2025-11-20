@@ -1,6 +1,6 @@
 package lexer.token;
 
-public class Token {
+public class Token  {
     public final TokenType type;
     public final String lexeme;
     public final Object literal;
