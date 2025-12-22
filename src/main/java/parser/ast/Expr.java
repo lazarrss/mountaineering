@@ -14,6 +14,7 @@ public abstract class Expr {
         R visitCall(Call e);
         R visitBinary(Binary e);
         R visitUnary(Unary e);
+        R visitCast(Cast e);
     }
 
     public abstract <R> R accept(Visitor<R> v);
@@ -68,6 +69,22 @@ public abstract class Expr {
 
         @Override
         public <R> R accept(Visitor<R> v) { return v.visitGrouping(this); }
+    }
+
+    // (type) expr
+    public static final class Cast extends Expr {
+        public final Token castTok;     // token of the target type
+        public final Ast.Type targetType;
+        public final Expr expr;
+
+        public Cast(Token castTok, Ast.Type targetType, Expr expr) {
+            this.castTok = castTok;
+            this.targetType = targetType;
+            this.expr = expr;
+        }
+
+        @Override
+        public <R> R accept(Visitor<R> v) { return v.visitCast(this); }
     }
 
     // callable func

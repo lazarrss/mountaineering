@@ -4,15 +4,31 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.*;
 
+import semantic.types.SType;
+
+import java.util.Map;
+
 public final class JsonAstPrinter implements Expr.Visitor<JsonNode>, Stmt.Visitor<JsonNode> {
 
     private static final ObjectMapper M = new ObjectMapper();
+
+    // optional: if null -> prints untyped AST
+    private final Map<Expr, SType> exprTypes;
+
+    public JsonAstPrinter() {
+        this.exprTypes = null;
+    }
+
+    public JsonAstPrinter(Map<Expr, SType> exprTypes) {
+        this.exprTypes = exprTypes;
+    }
 
     public String print(Ast.Program p) {
         try {
             ObjectNode root = M.createObjectNode();
             root.put("kind", "program");
             ArrayNode items = M.createArrayNode();
+
             for (Ast.TopItem ti : p.items) {
                 if (ti instanceof Ast.TopVarDecl tv) {
                     items.add(printTopVarDecl(tv));
@@ -20,11 +36,36 @@ public final class JsonAstPrinter implements Expr.Visitor<JsonNode>, Stmt.Visito
                     items.add(printFuncDef(fd));
                 }
             }
+
             root.set("items", items);
             return M.writerWithDefaultPrettyPrinter().writeValueAsString(root);
         } catch (Exception e) {
             throw new RuntimeException("failed to print AST to JSON", e);
         }
+    }
+
+    // ---------------- helpers ----------------
+
+    private void attachSType(ObjectNode o, Expr e) {
+        if (exprTypes == null || e == null) return;
+        SType t = exprTypes.get(e);
+        if (t == null) return;
+
+        ObjectNode st = M.createObjectNode();
+        st.put("kind", t.kind.toString());
+        st.put("rank", t.rank());
+        st.put("repr", t.toString()); // korisno za proveru (npr. INT[][])
+        o.set("stype", st);
+    }
+
+    private ObjectNode printAstType(Ast.Type type) {
+        ObjectNode t = M.createObjectNode();
+        t.put("kind", type.kind.toString());
+        t.put("rank", type.rank);
+        if (type.baseType != null) {
+            t.put("baseLexeme", type.baseType.lexeme);
+        }
+        return t;
     }
 
     private JsonNode printTopVarDecl(Ast.TopVarDecl tv) {
@@ -40,26 +81,14 @@ public final class JsonAstPrinter implements Expr.Visitor<JsonNode>, Stmt.Visito
         o.put("name", fd.name.lexeme);
 
         // return type
-        ObjectNode t = M.createObjectNode();
-        t.put("kind", fd.returnType.kind.toString());
-        t.put("rank", fd.returnType.rank);
-        if (fd.returnType.baseType != null) {
-            t.put("baseLexeme", fd.returnType.baseType.lexeme);
-        }
-        o.set("returnType", t);
+        o.set("returnType", printAstType(fd.returnType));
 
         // params
         ArrayNode ps = M.createArrayNode();
         for (Ast.Param p : fd.params) {
             ObjectNode pp = M.createObjectNode();
             pp.put("name", p.name.lexeme);
-            ObjectNode pt = M.createObjectNode();
-            pt.put("kind", p.type.kind.toString());
-            pt.put("rank", p.type.rank);
-            if (p.type.baseType != null) {
-                pt.put("baseLexeme", p.type.baseType.lexeme);
-            }
-            pp.set("type", pt);
+            pp.set("type", printAstType(p.type));
             ps.add(pp);
         }
         o.set("params", ps);
@@ -78,16 +107,17 @@ public final class JsonAstPrinter implements Expr.Visitor<JsonNode>, Stmt.Visito
         return arr;
     }
 
+    // ---------------- Expr visitors (typed) ----------------
+
     @Override
     public JsonNode visitLiteral(Expr.Literal e) {
         ObjectNode o = M.createObjectNode();
         o.put("expr", "literal");
         o.put("tokenType", e.token.type.toString());
-        if (e.value == null) {
-            o.putNull("value");
-        } else {
-            o.put("value", e.value.toString());
-        }
+        if (e.value == null) o.putNull("value");
+        else o.put("value", e.value.toString());
+
+        attachSType(o, e);
         return o;
     }
 
@@ -96,6 +126,8 @@ public final class JsonAstPrinter implements Expr.Visitor<JsonNode>, Stmt.Visito
         ObjectNode o = M.createObjectNode();
         o.put("expr", "ident");
         o.put("name", e.name.lexeme);
+
+        attachSType(o, e);
         return o;
     }
 
@@ -104,11 +136,12 @@ public final class JsonAstPrinter implements Expr.Visitor<JsonNode>, Stmt.Visito
         ObjectNode o = M.createObjectNode();
         o.put("expr", "index");
         o.put("name", e.name.lexeme);
+
         ArrayNode idx = M.createArrayNode();
-        for (Expr ex : e.indices) {
-            idx.add(ex.accept(this));
-        }
+        for (Expr ex : e.indices) idx.add(ex.accept(this));
         o.set("indices", idx);
+
+        attachSType(o, e);
         return o;
     }
 
@@ -117,6 +150,8 @@ public final class JsonAstPrinter implements Expr.Visitor<JsonNode>, Stmt.Visito
         ObjectNode o = M.createObjectNode();
         o.put("expr", "grouping");
         o.set("inner", e.inner.accept(this));
+
+        attachSType(o, e);
         return o;
     }
 
@@ -125,11 +160,12 @@ public final class JsonAstPrinter implements Expr.Visitor<JsonNode>, Stmt.Visito
         ObjectNode o = M.createObjectNode();
         o.put("expr", "call");
         o.put("name", e.callee.lexeme);
+
         ArrayNode args = M.createArrayNode();
-        for (Expr a : e.args) {
-            args.add(a.accept(this));
-        }
+        for (Expr a : e.args) args.add(a.accept(this));
         o.set("args", args);
+
+        attachSType(o, e);
         return o;
     }
 
@@ -140,6 +176,8 @@ public final class JsonAstPrinter implements Expr.Visitor<JsonNode>, Stmt.Visito
         o.put("op", e.op.lexeme);
         o.set("left", e.left.accept(this));
         o.set("right", e.right.accept(this));
+
+        attachSType(o, e);
         return o;
     }
 
@@ -148,34 +186,49 @@ public final class JsonAstPrinter implements Expr.Visitor<JsonNode>, Stmt.Visito
         ObjectNode o = M.createObjectNode();
         o.put("expr", "unary");
         o.put("op", e.op.lexeme);
-        o.set("expr", e.expr.accept(this));
+
+        // BITNO: ne koristi "expr" opet, jer prepisuješ string "unary"
+        o.set("operand", e.expr.accept(this));
+
+        attachSType(o, e);
         return o;
     }
+
+    @Override
+    public JsonNode visitCast(Expr.Cast e) {
+        ObjectNode o = M.createObjectNode();
+        o.put("expr", "cast");
+        o.set("targetType", printAstType(e.targetType));
+        o.set("inner", e.expr.accept(this));
+
+        attachSType(o, e);
+        return o;
+    }
+
+    // ---------------- Stmt visitors ----------------
 
     @Override
     public JsonNode visitVarDecl(Stmt.VarDecl s) {
         ObjectNode o = M.createObjectNode();
         o.put("stmt", "varDecl");
 
-        ObjectNode t = M.createObjectNode();
-        t.put("kind", s.type.kind.toString());
-        t.put("rank", s.type.rank);
-        if (s.type.baseType != null) {
-            t.put("baseLexeme", s.type.baseType.lexeme);
-        }
-        o.set("type", t);
+        o.set("type", printAstType(s.type));
 
-        ArrayNode dims = M.createArrayNode();
-        for (Expr d : s.dims) {
-            dims.add(d.accept(this));
-        }
-        o.set("dims", dims);
+        ArrayNode vars = M.createArrayNode();
+        for (Stmt.VarDecl.Var v : s.vars) {
+            ObjectNode vv = M.createObjectNode();
+            vv.put("name", v.name.lexeme);
 
-        ArrayNode names = M.createArrayNode();
-        for (var tok : s.names) {
-            names.add(tok.lexeme);
+            ArrayNode dims = M.createArrayNode();
+            for (Expr d : v.dims) dims.add(d.accept(this));
+            vv.set("dims", dims);
+
+            if (v.init != null) vv.set("init", v.init.accept(this));
+            else vv.putNull("init");
+
+            vars.add(vv);
         }
-        o.set("names", names);
+        o.set("vars", vars);
 
         return o;
     }
@@ -184,11 +237,8 @@ public final class JsonAstPrinter implements Expr.Visitor<JsonNode>, Stmt.Visito
     public JsonNode visitReturn(Stmt.Return s) {
         ObjectNode o = M.createObjectNode();
         o.put("stmt", "return");
-        if (s.expr != null) {
-            o.set("expr", s.expr.accept(this));
-        } else {
-            o.putNull("expr");
-        }
+        if (s.expr != null) o.set("expr", s.expr.accept(this));
+        else o.putNull("expr");
         return o;
     }
 
@@ -206,11 +256,8 @@ public final class JsonAstPrinter implements Expr.Visitor<JsonNode>, Stmt.Visito
         o.put("stmt", "if");
         o.set("condition", s.condition.accept(this));
         o.set("then", printBlock(s.thenBranch));
-        if (s.elseBranch != null) {
-            o.set("else", printBlock(s.elseBranch));
-        } else {
-            o.putNull("else");
-        }
+        if (s.elseBranch != null) o.set("else", printBlock(s.elseBranch));
+        else o.putNull("else");
         return o;
     }
 
@@ -219,19 +266,18 @@ public final class JsonAstPrinter implements Expr.Visitor<JsonNode>, Stmt.Visito
         ObjectNode o = M.createObjectNode();
         o.put("stmt", "climb");
 
-        ObjectNode t = M.createObjectNode();
-        t.put("kind", s.initType.kind.toString());
-        t.put("rank", s.initType.rank);
-        if (s.initType.baseType != null) {
-            t.put("baseLexeme", s.initType.baseType.lexeme);
+        if (s.initType == null) {
+            o.putNull("initType");
+        } else {
+            o.set("initType", printAstType(s.initType));
         }
-        o.set("initType", t);
 
         o.put("var", s.varName.lexeme);
         o.set("initExpr", s.initExpr.accept(this));
         o.set("condition", s.condition.accept(this));
         o.set("update", s.update.accept(this));
         o.set("body", printBlock(s.body));
+
         return o;
     }
 

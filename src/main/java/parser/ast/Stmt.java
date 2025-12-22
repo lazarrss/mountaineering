@@ -19,20 +19,44 @@ public abstract class Stmt {
 
     public abstract <R> R accept(Visitor<R> v);
 
-    public static final class VarDecl extends Stmt {
-        public final Ast.Type type;
-        public final List<Expr> dims;
-        public final List<lexer.token.Token> names;
+//    public static final class VarDecl extends Stmt {
+//        public final Ast.Type type;
+//        public final List<Expr> dims;
+//        public final List<lexer.token.Token> names;
+//
+//        public VarDecl(Ast.Type type, List<Expr> dims, List<lexer.token.Token> names) {
+//            this.type = type;
+//            this.dims = dims;
+//            this.names = names;
+//        }
+//
+//        @Override
+//        public <R> R accept(Visitor<R> v) { return v.visitVarDecl(this); }
+//    }
+public static final class VarDecl extends Stmt {
+    public final Ast.Type type;
+    public final List<Var> vars;
 
-        public VarDecl(Ast.Type type, List<Expr> dims, List<lexer.token.Token> names) {
-            this.type = type;
-            this.dims = dims;
-            this.names = names;
-        }
-
-        @Override
-        public <R> R accept(Visitor<R> v) { return v.visitVarDecl(this); }
+    public VarDecl(Ast.Type type, List<Var> vars) {
+        this.type = type;
+        this.vars = vars;
     }
+
+    @Override
+    public <R> R accept(Visitor<R> v) { return v.visitVarDecl(this); }
+
+    public static final class Var {
+        public final Token name;
+        public final List<Expr> dims; // npr. [10][20]
+        public final Expr init;       // nullable
+
+        public Var(Token name, List<Expr> dims, Expr init) {
+            this.name = name;
+            this.dims = dims;
+            this.init = init;
+        }
+    }
+}
 
     public static final class Return extends Stmt {
         public final Token keyword;

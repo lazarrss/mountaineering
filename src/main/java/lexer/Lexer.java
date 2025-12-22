@@ -145,6 +145,10 @@ public class Lexer {
         while (isIdentPart(sc.peek())) sc.advance();
         String text = source.substring(sc.getStartIdx(), sc.getCur());
         TokenType type = KEYWORDS.getOrDefault(text, TokenType.IDENT);
+        if(type == TokenType.ANCHORED || type == TokenType.LOOSE) {
+            addLiteralSecure(text, type == TokenType.ANCHORED);
+            return;
+        }
         add(type, text);
     }
 
@@ -161,6 +165,14 @@ public class Lexer {
 
     private void add(TokenType type, String text) {
         tokens.add(new Token(type, text, null,
+                sc.getStartLine(), sc.getStartCol(), sc.getCol() - 1));
+    }
+
+    private void addLiteralSecure(String literal, boolean TF){
+        if (TF)
+            tokens.add(new Token(TokenType.ANCHORED, literal, true,
+                    sc.getStartLine(), sc.getStartCol(), sc.getCol() - 1));
+        else tokens.add(new Token(TokenType.LOOSE, literal, false,
                 sc.getStartLine(), sc.getStartCol(), sc.getCol() - 1));
     }
 

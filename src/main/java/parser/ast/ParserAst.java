@@ -108,35 +108,33 @@ public final class ParserAst {
         // altitude/slope/mark/route/secure/basecamp [ opt []]
         Ast.Type type = parseType();
 
-        List<Expr> dims = new ArrayList<>();
-        // var names
-        List<Token> names = new ArrayList<>();
+        List<Stmt.VarDecl.Var> vars = new ArrayList<>();
+        vars.add(parseVarDeclarator());
 
+        while (match(SEPARATOR_COMMA)) {
+            vars.add(parseVarDeclarator());
+        }
+
+        consume(SEMICOLON, "expected ';' after variable declaration");
+        return new Stmt.VarDecl(type, vars);
+    }
+
+    private Stmt.VarDecl.Var parseVarDeclarator() {
         Token name = consume(IDENT, "expected variable name");
-        names.add(name);
 
+        List<Expr> dims = new ArrayList<>();
         while (match(LBRACKET)) {
             Expr size = parseExpr();
             consume(RBRACKET, "expected ']' after array size");
             dims.add(size);
         }
 
+        Expr init = null;
         if (match(ASSIGN)) {
-            Expr init = parseExpr();
+            init = parseExpr();
         }
 
-        while (match(SEPARATOR_COMMA)) {
-            Token n = consume(IDENT, "expected variable name after ','");
-            names.add(n);
-
-            if (match(ASSIGN)) {
-                Expr init2 = parseExpr();
-            }
-        }
-
-        consume(SEMICOLON, "expected ';' after variable declaration");
-
-        return new Stmt.VarDecl(type, dims, names);
+        return new Stmt.VarDecl.Var(name, dims, init);
     }
 
     private Stmt parseStmt() {
@@ -210,7 +208,11 @@ public final class ParserAst {
         consume(CLIMB, "expected climb keyword");
         consume(LPAREN, "expected '(' after climb");
 
-        Ast.Type initType = parseType();
+        Ast.Type initType = null;
+        if (startsType()) {
+            initType = parseType(); // altitude/slope/...
+        }
+
         Token varName = consume(IDENT, "expected loop variable name");
         consume(ASSIGN, "expected '<>' after loop variable");
         Expr initExpr = parseExpr();
@@ -218,6 +220,7 @@ public final class ParserAst {
 
         Expr condition = parseExpr();
         consume(SEMICOLON, "expected ';' after for-condition");
+
         Expr update = parseExpr();
         consume(RPAREN, "expected ')' after for-update");
 
@@ -395,10 +398,19 @@ public final class ParserAst {
         }
 
         if (match(LPAREN)) {
+            if (check(ALTITUDE) || check(SLOPE) || check(MARK) || check(ROUTE) || check(SECURE) || check(BASECAMP)) {
+                Token castTok = peek();
+                Ast.Type target = parseType();
+                consume(RPAREN, "expected ')' after cast type");
+                Expr inner = parseUnary();
+                return new Expr.Cast(castTok, target, inner);
+            }
+
             Expr inner = parseExpr();
             consume(RPAREN, "expected ')'");
             return new Expr.Grouping(inner);
         }
+
 
         throw error(peek(), "expected expression");
     }

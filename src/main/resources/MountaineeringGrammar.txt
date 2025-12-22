@@ -62,14 +62,14 @@ if_tail        =
   [ ELSECAMP LCURLY block RCURLY ] ;
 
 // climb (altitude i <> 0; i < 10; i++) { ... }
-for_tail       =
+for_tail =
   CLIMB LPAREN
-          type IDENT ASSIGN expr SEMICOLON
-          [ cond ] SEMICOLON
-          incdec_expr
-        RPAREN LCURLY
-          block
-        RCURLY ;
+      for_init SEMICOLON
+      [ cond ] SEMICOLON
+      expr
+  RPAREN LCURLY block RCURLY ;
+
+for_init = type IDENT ASSIGN expr | IDENT ASSIGN expr ;
 
 // belay (cond) { ... }
 while_tail     =
@@ -127,7 +127,10 @@ and            = comparison { AND comparison } ;
 comparison     = add { ( EQ | NEQ | LT | LE | GT | GE ) add } ;
 add            = mul { ( PLUS | MINUS ) mul } ;
 mul            = unary { ( MULTIPLY | DIV | MODULO ) unary } ;
-unary          = [ PLUS | MINUS | NOT ] postfix ;
+unary          = [ PLUS | MINUS | NOT ] unary_core ;
+unary_core     = cast | postfix ;
+cast           = LPAREN numeric_type RPAREN unary_core ;
+numeric_type   = ALTITUDE | SLOPE ;
 postfix        = primary { INC | DEC } ;
 
 primary        = atom ;
