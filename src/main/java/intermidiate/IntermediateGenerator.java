@@ -13,27 +13,20 @@ import static lexer.token.TokenType.*;
 
 public final class IntermediateGenerator implements Expr.Visitor<Void>, Stmt.Visitor<Void> {
 
-    // ---- public API ----
-
     public JasminProgram generate(Ast.Program program, Map<Expr, SType> exprTypes) {
         reset();
 
         if (program == null) return new JasminProgram(List.of());
         this.exprTypes = (exprTypes == null) ? Map.of() : exprTypes;
 
-        // Pass 1: signatures + call sites (return ids)
         collectCallSites(program);
 
-        // Reserve return-id 0 for entry into summit()
         calleeToReturnIds.computeIfAbsent("summit", k -> new ArrayList<>()).add(0);
 
-        // Pass 2: emit code
         emitProgram(program);
 
         return new JasminProgram(E.lines());
     }
-
-    // ---- state (reset each run) ----
 
     private Map<Expr, SType> exprTypes = Map.of();
     private final JasminEmitter E = new JasminEmitter();
@@ -46,8 +39,6 @@ public final class IntermediateGenerator implements Expr.Visitor<Void>, Stmt.Vis
 
     private int lblCounter = 1;
 
-    // pseudo-locals layout for the listing
-    // 0: args ([Ljava/lang/String;)  -- unused here
     private static final int SLOT_SP  = 1; // int
     private static final int SLOT_RA  = 2; // int[]
     private static final int SLOT_TMP = 3; // int
@@ -70,8 +61,6 @@ public final class IntermediateGenerator implements Expr.Visitor<Void>, Stmt.Vis
         E.lines().clear();
         pushScope();
     }
-
-    // ---- info structs ----
 
     private static final class VarInfo {
         final int slot;
@@ -101,8 +90,6 @@ public final class IntermediateGenerator implements Expr.Visitor<Void>, Stmt.Vis
         String retLabel(int id) { return "RET_" + name + "_" + id; }
     }
 
-    // ---- pass 1: collect signatures + call ids ----
-
     private int allocLocal(SType t) {
         int slot = nextLocalSlot;
         if (t != null && t.isScalar() && t.kind == SType.Kind.DOUBLE) nextLocalSlot += 2;
@@ -129,7 +116,6 @@ public final class IntermediateGenerator implements Expr.Visitor<Void>, Stmt.Vis
             }
         }
 
-        // traverse AST and assign call ids
         for (Ast.TopItem ti : p.items) {
             if (ti instanceof Ast.TopVarDecl tv) {
                 collectInStmt(tv.decl);
@@ -199,11 +185,8 @@ public final class IntermediateGenerator implements Expr.Visitor<Void>, Stmt.Vis
         }
     }
 
-    // ---- pass 2: emit program ----
 
     private void emitProgram(Ast.Program p) {
-        // Emit a valid Jasmin file with a single class and a single main method.
-        // All "functions" are emitted as labeled blocks inside main. Calls are done with goto + a manual return-address stack.
         E.emitRaw(".class public MountaineeringProgram");
         E.emitRaw(".super java/lang/Object");
         E.emitRaw("");
@@ -214,12 +197,10 @@ public final class IntermediateGenerator implements Expr.Visitor<Void>, Stmt.Vis
         E.emitRaw(".end method");
         E.emitRaw("");
         E.emitRaw(".method public static main([Ljava/lang/String;)V");
-        // We keep limits comfortably high to avoid having to compute exact maxima.
         E.emitRaw("  .limit stack 512");
         E.emitRaw("  .limit locals 512");
         E.emitRaw("");
 
-        // init RA stack
         E.emit("iconst_0");
         E.emit("istore " + SLOT_SP);
 
@@ -227,22 +208,18 @@ public final class IntermediateGenerator implements Expr.Visitor<Void>, Stmt.Vis
         E.emit("newarray int");
         E.emit("astore " + SLOT_RA);
 
-        // push entry return id 0
         E.emit("aload " + SLOT_RA);
         E.emit("iload " + SLOT_SP);
         E.emit("ldc 0");
         E.emit("iastore");
         E.emit("iinc " + SLOT_SP + " 1");
 
-        // jump to summit()
         E.emit("goto FUNC_summit");
 
-        // emit all user-defined functions as labeled blocks inside main
         for (Ast.TopItem ti : p.items) {
             if (ti instanceof Ast.FuncDef fd) emitFunction(fd);
         }
 
-        // program end / summit return target
         E.label("RET_summit_0");
         E.emit("goto END_PROGRAM");
 
@@ -263,7 +240,6 @@ public final class IntermediateGenerator implements Expr.Visitor<Void>, Stmt.Vis
 
         pushScope();
         try {
-            // bind params
             for (int i = 0; i < fd.params.size(); i++) {
                 String pname = fd.params.get(i).name.lexeme;
                 declareVar(pname, fi.paramSlots[i], fi.paramTypes.get(i));
@@ -271,7 +247,6 @@ public final class IntermediateGenerator implements Expr.Visitor<Void>, Stmt.Vis
 
             for (Stmt st : fd.body) if (st != null) st.accept(this);
 
-            // implicit falloff return
             if (fi.isVoid()) {
                 E.emit("goto " + fi.retDispatchLabel());
             } else {
@@ -286,9 +261,6 @@ public final class IntermediateGenerator implements Expr.Visitor<Void>, Stmt.Vis
             currentFunc = prev;
         }
     }
-
-    // ---- scopes ----
-
     private void pushScope() { scopes.push(new HashMap<>()); }
 
     private void popScope() {
@@ -309,8 +281,6 @@ public final class IntermediateGenerator implements Expr.Visitor<Void>, Stmt.Vis
     }
 
     private int allocSlot(SType t) { return allocLocal(t); }
-
-    // ---- Stmt visitors ----
 
     @Override
     public Void visitVarDecl(Stmt.VarDecl s) {
@@ -458,8 +428,6 @@ public final class IntermediateGenerator implements Expr.Visitor<Void>, Stmt.Vis
         }
         return null;
     }
-
-    // ---- Expr visitors ----
 
     @Override
     public Void visitLiteral(Expr.Literal e) {
@@ -648,9 +616,9 @@ public final class IntermediateGenerator implements Expr.Visitor<Void>, Stmt.Vis
         if (e.callee.type == SHOUT) {
             if (e.args == null || e.args.isEmpty()) return null;
             E.emit("getstatic java/lang/System/out Ljava/io/PrintStream;");
-            e.args.get(0).accept(this);
+            e.args.getFirst().accept(this);
 
-            SType at = exprType(e.args.get(0));
+            SType at = exprType(e.args.getFirst());
             String desc = "(Ljava/lang/String;)V";
             if (at != null) {
                 if (at.kind == SType.Kind.INT || at.kind == SType.Kind.BOOL || at.kind == SType.Kind.CHAR) desc = "(I)V";
@@ -693,8 +661,6 @@ public final class IntermediateGenerator implements Expr.Visitor<Void>, Stmt.Vis
         return null;
     }
 
-    // ---- return dispatch ----
-
     private void emitReturnDispatchBlockOnce(FuncInfo fi) {
         E.label(fi.retDispatchLabel());
 
@@ -717,8 +683,6 @@ public final class IntermediateGenerator implements Expr.Visitor<Void>, Stmt.Vis
         for (int id : sorted) E.emitRaw("    " + id + " : " + fi.retLabel(id));
         E.emitRaw("    default : END_PROGRAM");
     }
-
-    // ---- assign / lvalue ----
 
     private void emitAssign(Expr left, Expr right) {
         if (left instanceof Expr.Ident id) {
@@ -778,8 +742,6 @@ public final class IntermediateGenerator implements Expr.Visitor<Void>, Stmt.Vis
             }
         }
     }
-
-    // ---- compare / logical ----
 
     private void emitCompareToBool(Expr.Binary e, TokenType op) {
         SType lt = exprType(e.left);
@@ -845,8 +807,6 @@ public final class IntermediateGenerator implements Expr.Visitor<Void>, Stmt.Vis
         }
     }
 
-    // ---- arrays ----
-
     private void emitNewArray(SType fullType, int dimsCount) {
         if (dimsCount <= 0) { E.emit("aconst_null"); return; }
 
@@ -902,8 +862,6 @@ public final class IntermediateGenerator implements Expr.Visitor<Void>, Stmt.Vis
         };
     }
 
-    // ---- load/store/default ----
-
     private void loadFromSlot(SType t, int slot) {
         if (t.isArrayLike() || t.kind == SType.Kind.STRING || t.kind == SType.Kind.NULL) { E.emit("aload " + slot); return; }
         if (t.kind == SType.Kind.DOUBLE) { E.emit("dload " + slot); return; }
@@ -921,8 +879,6 @@ public final class IntermediateGenerator implements Expr.Visitor<Void>, Stmt.Vis
         if (t.kind == SType.Kind.DOUBLE) { E.emit("dconst_0"); return; }
         E.emit("iconst_0");
     }
-
-    // ---- misc ----
 
     private SType exprType(Expr e) {
         SType t = exprTypes.get(e);

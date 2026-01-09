@@ -2,9 +2,6 @@ package semantic.errors;
 
 import lexer.token.Token;
 
-/**
- * Represents a semantic error with an optional source location (Token).
- */
 public final class SemanticError {
 
     public enum Kind {
@@ -49,7 +46,6 @@ public final class SemanticError {
         if (token == null) {
             return "SEMANTIC > " + kind + ": " + message;
         }
-        // Token has line/colStart/colEnd in your project
         return "SEMANTIC > " + kind + ": " + message +
                 " (line: " + token.line + ", col: " + token.colStart + ")";
     }

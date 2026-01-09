@@ -3,9 +3,6 @@ package semantic.symbols;
 import lexer.token.Token;
 import semantic.types.SType;
 
-/**
- * Variable symbol (including parameters).
- */
 public final class VarSymbol extends Symbol {
     public final SType type;
     public final boolean isParam;

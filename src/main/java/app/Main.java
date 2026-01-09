@@ -17,10 +17,8 @@ import java.util.List;
 
 public class Main {
 
-    // Putanja do jasmin.jar (stavi ga u projekat pod tools/)
     private static final Path JASMIN_JAR = Path.of("tools", "jasmin.jar");
 
-    // Ako želiš automatski da izvršiš generisani bytecode posle generisanja
     private static final boolean RUN_GENERATED = true;
 
     public static void main(String[] args) {
@@ -35,33 +33,24 @@ public class Main {
             inputFile = Paths.get(args[0]);
             String code = Files.readString(inputFile);
 
-            // 1) LEX
             Lexer lexer = new Lexer(code);
             List<Token> tokens = lexer.scanTokens();
             System.out.println(TokenFormatter.formatList(tokens));
 
-            // 2) PARSE
             ParserAst parser = new ParserAst(tokens);
             Ast.Program prog = parser.parseProgram();
 
-            // 3) SEMANTIC
-            System.out.println("=== SEMANTIC: start ===");
             SemanticAnalyzer sem = new SemanticAnalyzer();
             sem.analyze(prog);
-            System.out.println("=== SEMANTIC: OK (no errors) ===");
-            System.out.println("=== SEMANTIC: typed expr nodes = " + sem.getExprTypes().size() + " ===");
 
-            // 4) OUTPUT DIR
             Path outDir = Path.of("out");
             Files.createDirectories(outDir);
 
-            // 5) JSON (TYPED)
             Path outTyped = outDir.resolve("program.json");
             String jsonTyped = new JsonAstPrinter(sem.getExprTypes()).print(prog);
             Files.writeString(outTyped, jsonTyped, StandardCharsets.UTF_8);
             System.out.println("Typed AST written to: " + outTyped.toAbsolutePath());
 
-            // 6) JASMIN
             intermidiate.IntermediateGenerator gen = new intermidiate.IntermediateGenerator();
             intermidiate.JasminProgram jp = gen.generate(prog, sem.getExprTypes());
 
@@ -93,12 +82,11 @@ public class Main {
 
     private static void compileAndRunJasmin(Path outDir, Path jasminFile) {
         if (!Files.exists(JASMIN_JAR)) {
-            System.err.println("=== RUN: skipped ===");
-            System.err.println("Missing " + JASMIN_JAR.toAbsolutePath() + " (place jasmin.jar there or change JASMIN_JAR path).");
+            System.err.println("run skipped..");
+            System.err.println("Missing " + JASMIN_JAR.toAbsolutePath());
             return;
         }
 
-        System.out.println("=== RUN: jasmin compile ===");
         int c1 = runProcess(outDir,
                 javaExe(),
                 "-jar", JASMIN_JAR.toAbsolutePath().toString(),
@@ -109,7 +97,6 @@ public class Main {
             return;
         }
 
-        // Ime klase mora da se poklopi sa .class u .j
         String mainClass = "MountaineeringProgram";
         Path classFile = outDir.resolve(mainClass + ".class");
 
@@ -118,7 +105,6 @@ public class Main {
             return;
         }
 
-        System.out.println("=== RUN: java " + mainClass + " ===");
         int c2 = runProcess(outDir,
                 javaExe(),
                 "-cp", outDir.toAbsolutePath().toString(),
@@ -133,7 +119,7 @@ public class Main {
         try {
             ProcessBuilder pb = new ProcessBuilder(cmd);
             pb.directory(workingDir.toFile());
-            pb.inheritIO(); // stdout/stderr u istoj IntelliJ konzoli
+            pb.inheritIO();
             Process p = pb.start();
             return p.waitFor();
         } catch (Exception e) {
@@ -144,7 +130,6 @@ public class Main {
     }
 
     private static String javaExe() {
-        // koristi isto java koje pokrece IntelliJ run
         String home = System.getProperty("java.home");
         Path p = Path.of(home, "bin", isWindows() ? "java.exe" : "java");
         return p.toString();

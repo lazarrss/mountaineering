@@ -18,10 +18,6 @@ public final class JasminEmitter {
         out.add(name + ":");
     }
 
-    public void comment(String c) {
-        out.add("  ; " + c);
-    }
-
     public List<String> lines() {
         return out;
     }

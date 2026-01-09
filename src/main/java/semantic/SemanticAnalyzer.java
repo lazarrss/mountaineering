@@ -40,14 +40,12 @@ public final class SemanticAnalyzer implements Expr.Visitor<SType>, Stmt.Visitor
 
         this.programRef = program;
 
-        // pass 1: declare all function headers first (recursion ok)
         for (Ast.TopItem it : program.items) {
             if (it instanceof Ast.FuncDef fd) {
                 declareFunctionHeader(fd);
             }
         }
 
-        // pass 2: analyze top-level var decls + function bodies
         for (Ast.TopItem it : program.items) {
             if (it instanceof Ast.TopVarDecl tv) {
                 visitStmt(tv.decl);
@@ -72,9 +70,6 @@ public final class SemanticAnalyzer implements Expr.Visitor<SType>, Stmt.Visitor
         return exprTypes;
     }
 
-    // -----------------------------
-    // Top-level: functions
-    // -----------------------------
 
     private void declareFunctionHeader(Ast.FuncDef fd) {
         String fname = fd.name.lexeme;
@@ -127,7 +122,6 @@ public final class SemanticAnalyzer implements Expr.Visitor<SType>, Stmt.Visitor
 
         symbols.pushScope();
         try {
-            // declare params in function scope
             for (int i = 0; i < fd.params.size(); i++) {
                 Ast.Param p = fd.params.get(i);
                 SType pt = fs.paramTypes.get(i);
@@ -149,10 +143,6 @@ public final class SemanticAnalyzer implements Expr.Visitor<SType>, Stmt.Visitor
         }
     }
 
-    // -----------------------------
-    // Stmt dispatch
-    // -----------------------------
-
     private void visitStmt(Stmt s) {
         if (s != null) s.accept(this);
     }
@@ -161,10 +151,6 @@ public final class SemanticAnalyzer implements Expr.Visitor<SType>, Stmt.Visitor
         if (block == null) return;
         for (Stmt s : block) visitStmt(s);
     }
-
-    // -----------------------------
-    // Stmt visitors
-    // -----------------------------
 
     @Override
     public Void visitVarDecl(Stmt.VarDecl s) {
@@ -186,7 +172,6 @@ public final class SemanticAnalyzer implements Expr.Visitor<SType>, Stmt.Visitor
 
         Object varsObj = reflectFieldOrNull(s, "vars");
 
-        // NEW MODE: s.vars = [{name, dims[], init}, ...]
         if (varsObj instanceof List<?> varsList) {
             for (Object vi : varsList) {
                 Token nameTok = (Token) reflectFieldOrNull(vi, "name");
@@ -199,7 +184,6 @@ public final class SemanticAnalyzer implements Expr.Visitor<SType>, Stmt.Visitor
             return null;
         }
 
-        // OLD MODE: s.dims + s.names
         @SuppressWarnings("unchecked")
         List<Expr> sharedDims = (List<Expr>) reflectFieldOrNull(s, "dims");
         @SuppressWarnings("unchecked")
@@ -214,11 +198,6 @@ public final class SemanticAnalyzer implements Expr.Visitor<SType>, Stmt.Visitor
         return null;
     }
 
-    /**
-     * Declares exactly one variable declarator:
-     *   name [dims...] [<> init]
-     * Works for both NEW and OLD AST shapes.
-     */
     private void handleOneDeclarator(SType baseType, Token nameTok, List<Expr> dims, Expr init) {
         if (nameTok == null) {
             error(SemanticError.Kind.DUPLICATE_DECLARATION,
@@ -242,10 +221,8 @@ public final class SemanticAnalyzer implements Expr.Visitor<SType>, Stmt.Visitor
             }
         }
 
-        // final declared type
         SType fullType = baseType.withRank(baseType.rank() + extraRank);
 
-        // forbid init of array/matrix
         if (fullType.isArrayLike() && init != null) {
             error(SemanticError.Kind.INVALID_ASSIGN_TARGET,
                     "Cannot initialize an array/matrix in declaration: '" + nameTok.lexeme + "'.",
@@ -261,7 +238,6 @@ public final class SemanticAnalyzer implements Expr.Visitor<SType>, Stmt.Visitor
             return;
         }
 
-        // initializer type check + remember constant slope value if initializer is slope literal
         if (init != null) {
             SType it = typeOf(init);
             if (!TypeUtil.canAssign(fullType, it)) {
@@ -271,7 +247,6 @@ public final class SemanticAnalyzer implements Expr.Visitor<SType>, Stmt.Visitor
                 return;
             }
 
-            // track only: slope s <> 7.0;
             if (fullType.isScalar()
                     && fullType.kind == SType.Kind.DOUBLE
                     && init instanceof Expr.Literal lit
@@ -282,7 +257,6 @@ public final class SemanticAnalyzer implements Expr.Visitor<SType>, Stmt.Visitor
                 knownSlopeValues.put(vs, dv);
             }
         } else {
-            // declared without init -> value unknown
             if (fullType.isScalar() && fullType.kind == SType.Kind.DOUBLE) {
                 knownSlopeValues.remove(vs);
             }
@@ -465,10 +439,6 @@ public final class SemanticAnalyzer implements Expr.Visitor<SType>, Stmt.Visitor
         return null;
     }
 
-    // -----------------------------
-    // Expr typing
-    // -----------------------------
-
     private SType typeOf(Expr e) {
         if (e == null) return null;
         SType cached = exprTypes.get(e);
@@ -495,7 +465,6 @@ public final class SemanticAnalyzer implements Expr.Visitor<SType>, Stmt.Visitor
 
     @Override
     public SType visitIdent(Expr.Ident e) {
-        // parser can create Ident with SHOUT/RADIO/BELAY tokens too
         if (e.name.type != IDENT) {
             error(SemanticError.Kind.RETURN_USED_AS_WRONG_TYPE,
                     "Keyword '" + e.name.lexeme + "' cannot be used as a variable name.",
@@ -771,7 +740,6 @@ public final class SemanticAnalyzer implements Expr.Visitor<SType>, Stmt.Visitor
             return t;
         }
 
-        // postfix ++ / -- are represented as Expr.Unary with PLUS2/MINUS2 in your parser
         if (op == PLUS2 || op == MINUS2) {
             SType lv = typeOfLValue(e.expr);
             if (lv == null || !lv.isNumericScalar()) {
@@ -787,10 +755,6 @@ public final class SemanticAnalyzer implements Expr.Visitor<SType>, Stmt.Visitor
                 e.op);
         return null;
     }
-
-    // -----------------------------
-    // LValue helpers
-    // -----------------------------
 
     private void requireLValue(Expr e, String msg) {
         if (e instanceof Expr.Ident) return;
@@ -817,7 +781,7 @@ public final class SemanticAnalyzer implements Expr.Visitor<SType>, Stmt.Visitor
         }
 
         if (e instanceof Expr.Index) {
-            return visitIndex((Expr.Index) e); // ovo već validira i indeksiranje
+            return visitIndex((Expr.Index) e);
         }
 
         error(SemanticError.Kind.INVALID_ASSIGN_TARGET,
@@ -826,11 +790,6 @@ public final class SemanticAnalyzer implements Expr.Visitor<SType>, Stmt.Visitor
         return null;
     }
 
-
-
-    // -----------------------------
-    // Errors & token helpers
-    // -----------------------------
 
     private void error(SemanticError.Kind kind, String message, Token token) {
         throw new SemanticException(new SemanticError(kind, message, token));
@@ -887,27 +846,23 @@ public final class SemanticAnalyzer implements Expr.Visitor<SType>, Stmt.Visitor
             } else if (s instanceof Stmt.DoWhile dw) {
                 collectReturns(dw.body, out);
             }
-            // else pass
         }
     }
 
 
     @Override
     public SType visitCast(Expr.Cast e) {
-        // target type from AST (altitude/slope/mark/route/secure)
         SType target = TypeUtil.fromAstType(e.targetType);
         if (target == null) {
             error(SemanticError.Kind.INVALID_CAST, "Invalid cast target type.", e.castTok);
             return null;
         }
 
-        // no casting to void
         if (target.isVoid()) {
             error(SemanticError.Kind.INVALID_CAST, "Cannot cast to basecamp/void.", e.castTok);
             return null;
         }
 
-        // scalar only (no arrays/matrices)
         if (!target.isScalar()) {
             error(SemanticError.Kind.INVALID_CAST,
                     "Cast target must be a scalar type (no arrays/matrices).",
@@ -917,13 +872,11 @@ public final class SemanticAnalyzer implements Expr.Visitor<SType>, Stmt.Visitor
 
         SType src = typeOf(e.expr);
 
-        // SPEC RULE: slope(double) -> altitude(int) only if fractional part is 0...0
         if (target.isIntegralScalar()
                 && src != null
                 && src.isScalar()
                 && src.kind == SType.Kind.DOUBLE) {
 
-            // 1) literal: (altitude) 7.0 / 7.2
             if (e.expr instanceof Expr.Literal lit
                     && lit.token != null
                     && lit.token.type == TokenType.SLOPE_LIT
@@ -936,10 +889,9 @@ public final class SemanticAnalyzer implements Expr.Visitor<SType>, Stmt.Visitor
                             e.castTok);
                     return null;
                 }
-                return target; // ok
+                return target;
             }
 
-            // 2) variable: (altitude) s  (only if we know s was initialized with slope literal)
             if (e.expr instanceof Expr.Ident id) {
                 Symbol sym = symbols.lookup(id.name.lexeme);
                 if (!(sym instanceof VarSymbol vs)) {
@@ -967,12 +919,9 @@ public final class SemanticAnalyzer implements Expr.Visitor<SType>, Stmt.Visitor
                     return null;
                 }
 
-                return target; // ok
+                return target;
             }
 
-            // 3) function call: (altitude) func()
-            // We check ONLY if function returns direct slope literal(s).
-            // If function returns variable/expression, we do NOT check (allowed by your rule).
             if (e.expr instanceof Expr.Call call
                     && call.callee != null
                     && call.callee.type == TokenType.IDENT) {
@@ -995,7 +944,6 @@ public final class SemanticAnalyzer implements Expr.Visitor<SType>, Stmt.Visitor
                             }
                         }
 
-                        // only if ALL returns are direct slope literals -> enforce .0..0
                         if (allReturnsAreSlopeLiterals) {
                             for (Stmt.Return r : returns) {
                                 Expr.Literal rl = (Expr.Literal) r.expr;
@@ -1007,16 +955,14 @@ public final class SemanticAnalyzer implements Expr.Visitor<SType>, Stmt.Visitor
                                     return null;
                                 }
                             }
-                            return target; // ok
+                            return target;
                         }
                     }
                 }
 
-                // if fd not found, or return is not direct slope literal -> allow (no extra checking)
                 return target;
             }
 
-            // 4) all other double->int casts we can't prove -> reject
             error(SemanticError.Kind.INVALID_CAST,
                     "Invalid cast: slope->altitude is allowed only for slope literals with .0...0, " +
                             "variables initialized with such literals, or function calls that directly return such literals.",
@@ -1024,7 +970,6 @@ public final class SemanticAnalyzer implements Expr.Visitor<SType>, Stmt.Visitor
             return null;
         }
 
-        // general explicit cast check (everything else)
         if (!TypeUtil.canCast(target, src)) {
             error(SemanticError.Kind.INVALID_CAST,
                     "Invalid cast: cannot cast " + src + " to " + target + ".",

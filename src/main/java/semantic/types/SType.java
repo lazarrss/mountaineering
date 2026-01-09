@@ -2,10 +2,6 @@ package semantic.types;
 
 import java.util.Objects;
 
-/**
- * Semantic type used by the semantic analyzer.
- * kind + rank (0 scalar, 1 array, 2 matrix, ...)
- */
 public final class SType {
 
     public enum Kind {
@@ -32,7 +28,6 @@ public final class SType {
         return kind;
     }
 
-    /** 0 = scalar, 1 = [], 2 = [][] ... */
     public int rank() {
         return rank;
     }
@@ -73,18 +68,6 @@ public final class SType {
         return rank == 0 && kind == Kind.CHAR;
     }
 
-    /**
-     * Returns element type by decreasing rank by 1.
-     * Example: INT[2] -> INT[1], INT[1] -> INT[0].
-     */
-    public SType elementType() {
-        if (rank == 0) return this;
-        return new SType(kind, rank - 1);
-    }
-
-    /**
-     * Returns a type with the same kind and a new rank.
-     */
     public SType withRank(int newRank) {
         return new SType(kind, newRank);
     }
